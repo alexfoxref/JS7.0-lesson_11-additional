@@ -7,7 +7,10 @@ window.addEventListener('DOMContentLoaded', () => {
         contactForm = document.getElementById('form'),
         input = form.getElementsByTagName('input'),
         contactInput = contactForm.getElementsByTagName('input'),
-        statusMessage = document.createElement('div');
+        statusMessage = document.createElement('div'),
+        overlayForm = document.querySelector('.overlay-form'),
+        popupFormTitle = document.querySelector('.popup-form-title'),
+        popupFormStatus = document.querySelector('.popup-form-status');
 
         statusMessage.classList.add('status-img');
     // переменные для блока с ajax
@@ -363,11 +366,24 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // Формы AJAX
     function sendForm(form, input) {
+        //объект стандартных интерпретаций ответа сервера
+        let message = {
+            loading: 'Загрузка...',
+            loadingImg: `<img src="img/refresh-button.svg" width="40" height="40" alt="Загрузка...">`,
+            success: 'Спасибо за вашу заявку!',
+            successImg: `<img src="img/thumbs-up.svg" width="40" height="40" alt="Спасибо за вашу заявку!">`,
+            successImgBig: `<img src="img/thumbs-up.svg" width="200" height="200" alt="Спасибо за вашу заявку!">`,
+            failure: 'Что-то пошло не так...',
+            failureImg: `<img src="img/delete-button.svg" width="40" height="40" alt="Что-то пошло не так...">`,
+            failureImgBig: `<img src="img/delete-button.svg" width="200" height="200" alt="Что-то пошло не так...">`
+        };
 
         form.addEventListener('submit', (event) => {
             event.preventDefault();
+            //добавляем картинку в форму и удаляем класс анимации всплывающего окна формы
             form.appendChild(statusMessage);
-            
+            overlayForm.classList.remove('fade-form');
+            //устанавливаем позицию для картинки
             if (form == contactForm) {
                 statusMessage.style.top = '67%';
                 statusMessage.style.left = '43%';
@@ -375,7 +391,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 statusMessage.style.top = '58%';
                 statusMessage.style.left = '54%';
             }
-
+            //формируем запрос в формате json
             let request = new XMLHttpRequest();
     
             request.open('POST', 'server.php');
@@ -391,11 +407,40 @@ window.addEventListener('DOMContentLoaded', () => {
 
             let json = JSON.stringify(obj);
             request.send(json);
-    
+            //слушатель на изменение состояния запроса
             request.addEventListener('readystatechange', () => {
+                //функция действий при успехе и при неуспехе
+                function requestEvent(status, mes, img, imgBig) {
+                    //класс для условия остановки анимации
+                    statusMessage.classList.remove('loading');
+                    statusMessage.classList.add(status);
+                    //вставляем нужную картинку
+                    statusMessage.innerHTML = img;
+                    //модальное окно с нужной надписью и картинкой
+                    overlayForm.style.display = 'block';
+                    overlayForm.classList.add('fade-form');
+                    popupFormTitle.textContent = mes;
+                    let image = document.createElement('div');
+                    image.innerHTML = imgBig;
+                    image.classList.add('popup-form-img')
+                    popupFormStatus.appendChild(image);
+                    //закрываем модальное окно по клику в любое место и убираем обработчик событий
+                    function removeListener(event) {
+                        overlayForm.style.display = 'none';
+                        overlayForm.classList.remove('fade-form');
+                        popupFormStatus.removeChild(image);
+                        document.body.removeEventListener('click', removeListener);
+                    }
+
+                    document.body.addEventListener('click', removeListener);
+                }
+
+                //загрузка
                 if (request.readyState < 4) {
+                    //класс для условия остановки анимации
                     statusMessage.classList.add('loading');
-                    statusMessage.innerHTML = `<img src="img/refresh-button.svg" width="40" height="40" alt="Загрузка...">`;
+                    statusMessage.innerHTML = message.loadingImg;
+                    //js анимация вращения картинки
                     let count = 0,
                         loadingAnimation = setInterval(() => {
                             statusMessage.style.transform = `rotate(${++count}deg)`;
@@ -405,18 +450,14 @@ window.addEventListener('DOMContentLoaded', () => {
                             }
                         }, 10);
                 } else if (request.readyState === 4 && request.status == 200) {
+                    //успех
+                    //таймаут для остановки вращения картинки
                     setTimeout(() => {
-                        statusMessage.classList.remove('loading');
-                        statusMessage.classList.add('success');
-    
-                        statusMessage.innerHTML = `<img src="img/thumbs-up.svg" width="40" height="40" alt="Спасибо! Скоро мы с Вами свяжемся">`;
+                        requestEvent('success', message.success, message.successImg, message.successImgBig);
                     }, 10);
                 } else {
                     setTimeout(() => {
-                        statusMessage.classList.remove('loading');
-                        statusMessage.classList.add('failure');
-
-                        statusMessage.innerHTML = `<img src="img/delete-button.svg" width="40" height="40" alt="Что-то пошло не так...">`;
+                        requestEvent('failure', message.failure, message.failureImg, message.failureImgBig);
                     }, 7200);
                 }
                 statusMessage.classList.remove('success');
